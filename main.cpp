@@ -14,7 +14,7 @@ struct State
 
 struct GPSMeasurement
 {
-    bool valid = false
+    bool valid = false;
     double position = 0.0;
     double velocity = 0.0;
 };
@@ -37,8 +37,8 @@ std::vector<DopplerMeasurement> generate_doppler_measurements(const std::vector<
                                                               std::normal_distribution<double>&,
                                                               std::normal_distribution<double>&,
                                                               double, int);
-void write_measurements_csv(const std::vector<State>&, const std::vector<State>&,
-                            const std::vector<GPSMeasurement>&,
+void write_measurements_csv(const std::string&, const std::vector<State>&,
+                            const std::vector<State>&, const std::vector<GPSMeasurement>&,
                             const std::vector<DopplerMeasurement>&, double);
 
 int main()
@@ -66,6 +66,8 @@ int main()
     constexpr double kGPSVelocitySigma = 0.15;
     constexpr double kDopplerRangeSigma = 0.5;
     constexpr double kDopplerRRSigma = 0.05;
+
+    const std::string kMeasurementFilename = "../measurements.csv";
 
     static_assert(kIMUFrequency % kGPSFrequency == 0,
                   "IMU frequency must be a multiple of GPS frequency");
@@ -128,8 +130,8 @@ int main()
     auto doppler_measurements = generate_doppler_measurements(
         true_trajectory, gen, doppler_range_noise, doppler_rr_noise, kBeaconPosition, kDopplerStep);
 
-    write_measurements_csv(true_trajectory, estimated_trajectory, gps_measurements,
-                           doppler_measurements, kDt);
+    write_measurements_csv(kMeasurementFilename, true_trajectory, estimated_trajectory,
+                           gps_measurements, doppler_measurements, kDt);
 
     return 0;
 }
@@ -229,12 +231,18 @@ generate_doppler_measurements(const std::vector<State>& true_trajectory, std::mt
     return doppler_measurement;
 }
 
-void write_measurements_csv(const std::vector<State>& true_trajectory,
+void write_measurements_csv(const std::string& filename, const std::vector<State>& true_trajectory,
                             const std::vector<State>& estimated_trajectory,
                             const std::vector<GPSMeasurement>& gps_measurements,
                             const std::vector<DopplerMeasurement>& doppler_measurements, double dt)
 {
-    std::ofstream file("../measurements.csv");
+    std::ofstream file(filename);
+
+    if (!file.is_open())
+    {
+        std::cerr << "Failed to open file: " << filename << "\n";
+        return;
+    }
 
     file << "time,true_pos,true_vel,true_acc,est_pos,est_vel,est_acc,gps_valid,gps_pos,gps_vel,"
             "doppler_valid,doppler_range,doppler_rr\n";
