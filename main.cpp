@@ -34,7 +34,7 @@ std::vector<DopplerMeasurement> generate_doppler_measurements(const std::vector<
                                                               std::mt19937_64&,
                                                               std::normal_distribution<double>&,
                                                               std::normal_distribution<double>&,
-                                                              int);
+                                                              double, int);
 
 int main()
 {
@@ -118,7 +118,7 @@ int main()
                                                       gps_velocity_noise, kGPSStep);
 
     auto doppler_measurements = generate_doppler_measurements(
-        true_trajectory, gen, doppler_range_noise, doppler_rr_noise, kDopplerStep);
+        true_trajectory, gen, doppler_range_noise, doppler_rr_noise, kBeaconPosition, kDopplerStep);
 
     return 0;
 }
@@ -200,10 +200,12 @@ generate_gps_measurements(const std::vector<State>& true_trajectory, std::mt1993
 std::vector<DopplerMeasurement>
 generate_doppler_measurements(const std::vector<State>& true_trajectory, std::mt19937_64& gen,
                               std::normal_distribution<double>& range_noise_dist,
-                              std::normal_distribution<double>& rr_noise_dist, int doppler_step)
+                              std::normal_distribution<double>& rr_noise_dist,
+                              double beacon_position, int doppler_step)
 {
     std::vector<DopplerMeasurement> doppler_measurement(true_trajectory.size());
-    double range_noise, rr_noise;
+    double range_noise, rr_noise, delta_position;
+    int sign;
 
     for (size_t i = 0; i < true_trajectory.size(); ++i)
     {
@@ -211,9 +213,11 @@ generate_doppler_measurements(const std::vector<State>& true_trajectory, std::mt
         {
             range_noise = range_noise_dist(gen);
             rr_noise = rr_noise_dist(gen);
+            delta_position = true_trajectory.at(i).position - beacon_position;
             doppler_measurement.at(i).valid = true;
-            doppler_measurement.at(i).range = true_trajectory.at(i).position + range_noise;
-            doppler_measurement.at(i).range_rate = true_trajectory.at(i).velocity + rr_noise;
+            doppler_measurement.at(i).range = std::abs(delta_position) + range_noise;
+            sign = (delta_position > 1e-12) ? 1.0 : -1.0; // positive is moving away from beacon
+            doppler_measurement.at(i).range_rate = sign * true_trajectory.at(i).velocity + rr_noise;
         }
         else
         {
