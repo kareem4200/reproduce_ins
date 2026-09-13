@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <random>
@@ -35,6 +36,9 @@ std::vector<DopplerMeasurement> generate_doppler_measurements(const std::vector<
                                                               std::normal_distribution<double>&,
                                                               std::normal_distribution<double>&,
                                                               double, int);
+void write_measurements_csv(const std::vector<State>&, const std::vector<State>&,
+                            const std::vector<GPSMeasurement>&,
+                            const std::vector<DopplerMeasurement>&, double);
 
 int main()
 {
@@ -120,6 +124,9 @@ int main()
     auto doppler_measurements = generate_doppler_measurements(
         true_trajectory, gen, doppler_range_noise, doppler_rr_noise, kBeaconPosition, kDopplerStep);
 
+    write_measurements_csv(true_trajectory, imu_measurements, gps_measurements,
+                           doppler_measurements, kDt);
+
     return 0;
 }
 
@@ -190,7 +197,7 @@ generate_gps_measurements(const std::vector<State>& true_trajectory, std::mt1993
         {
             gps_measurements.at(i).valid = false;
             gps_measurements.at(i).position = std::numeric_limits<double>::quiet_NaN();
-            gps_measurements.at(i).position = std::numeric_limits<double>::quiet_NaN();
+            gps_measurements.at(i).velocity = std::numeric_limits<double>::quiet_NaN();
         }
     }
 
@@ -205,7 +212,7 @@ generate_doppler_measurements(const std::vector<State>& true_trajectory, std::mt
 {
     std::vector<DopplerMeasurement> doppler_measurement(true_trajectory.size());
     double range_noise, rr_noise, delta_position;
-    int sign;
+    double sign;
 
     for (size_t i = 0; i < true_trajectory.size(); ++i)
     {
@@ -228,4 +235,32 @@ generate_doppler_measurements(const std::vector<State>& true_trajectory, std::mt
     }
 
     return doppler_measurement;
+}
+
+void write_measurements_csv(const std::vector<State>& true_trajectory,
+                            const std::vector<State>& estimated_trajectory,
+                            const std::vector<GPSMeasurement>& gps_measurements,
+                            const std::vector<DopplerMeasurement>& doppler_measurements, double dt)
+{
+    std::ofstream file("../measurements.csv");
+    double time = 0.0;
+
+    file << "time,true_pos,true_vel,true_acc,est_pos,est_vel,est_acc,gps_valid,gps_pos,gps_vel,"
+            "doppler_valid,doppler_range,doppler_rr\n";
+
+    for (int i = 0; i < true_trajectory.size(); ++i)
+    {
+        time = i * dt;
+
+        file << time << "," << true_trajectory.at(i).position << ","
+             << true_trajectory.at(i).velocity << "," << true_trajectory.at(i).acceleration << ","
+             << estimated_trajectory.at(i).position << "," << estimated_trajectory.at(i).velocity
+             << "," << estimated_trajectory.at(i).acceleration << ","
+             << gps_measurements.at(i).valid << "," << gps_measurements.at(i).position << ","
+             << gps_measurements.at(i).velocity << "," << doppler_measurements.at(i).valid << ","
+             << doppler_measurements.at(i).range << "," << doppler_measurements.at(i).range_rate
+             << "\n";
+    }
+
+    file.close();
 }
