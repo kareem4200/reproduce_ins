@@ -7,23 +7,23 @@
 
 struct State
 {
-    double position;
-    double velocity;
-    double acceleration;
+    double position = 0.0;
+    double velocity = 0.0;
+    double acceleration = 0.0;
 };
 
 struct GPSMeasurement
 {
-    bool valid;
-    double position;
-    double velocity;
+    bool valid = false
+    double position = 0.0;
+    double velocity = 0.0;
 };
 
 struct DopplerMeasurement
 {
-    bool valid;
-    double range;
-    double range_rate;
+    bool valid = false;
+    double range = 0.0;
+    double range_rate = 0.0;
 };
 
 std::vector<State> generate_true_trajectory(int, double, double, double, double);
@@ -235,14 +235,13 @@ void write_measurements_csv(const std::vector<State>& true_trajectory,
                             const std::vector<DopplerMeasurement>& doppler_measurements, double dt)
 {
     std::ofstream file("../measurements.csv");
-    double time = 0.0;
 
     file << "time,true_pos,true_vel,true_acc,est_pos,est_vel,est_acc,gps_valid,gps_pos,gps_vel,"
             "doppler_valid,doppler_range,doppler_rr\n";
 
     for (size_t i = 0; i < true_trajectory.size(); ++i)
     {
-        time = static_cast<double>(i) * dt;
+        const double time = static_cast<double>(i) * dt;
 
         file << time << "," << true_trajectory.at(i).position << ","
              << true_trajectory.at(i).velocity << "," << true_trajectory.at(i).acceleration << ","
