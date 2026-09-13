@@ -3,6 +3,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include <limits>
 
 struct State
 {
@@ -248,9 +249,9 @@ void write_measurements_csv(const std::vector<State>& true_trajectory,
     file << "time,true_pos,true_vel,true_acc,est_pos,est_vel,est_acc,gps_valid,gps_pos,gps_vel,"
             "doppler_valid,doppler_range,doppler_rr\n";
 
-    for (int i = 0; i < true_trajectory.size(); ++i)
+    for (size_t i = 0; i < true_trajectory.size(); ++i)
     {
-        time = i * dt;
+        time = static_cast<double>(i) * dt;
 
         file << time << "," << true_trajectory.at(i).position << ","
              << true_trajectory.at(i).velocity << "," << true_trajectory.at(i).acceleration << ","
