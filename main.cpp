@@ -27,8 +27,8 @@ struct DopplerMeasurement
 };
 
 std::vector<State> generate_true_trajectory(int, double, double, double, double);
-std::vector<State> generate_imu_measurements(const std::vector<State>&, std::mt19937_64&,
-                                             std::normal_distribution<double>&, double, double);
+std::vector<double> generate_imu_measurements(const std::vector<State>&, std::mt19937_64&,
+                                              std::normal_distribution<double>&, double);
 std::vector<GPSMeasurement> generate_gps_measurements(const std::vector<State>&, std::mt19937_64&,
                                                       std::normal_distribution<double>&,
                                                       std::normal_distribution<double>&, int);
@@ -97,26 +97,29 @@ int main()
     std::cout << "last acceleration_true: " << true_trajectory.back().acceleration << '\n';
 
     auto imu_measurements =
-        generate_imu_measurements(true_trajectory, gen, accel_noise, kAccelBias, kDt);
+        generate_imu_measurements(true_trajectory, gen, accel_noise, kAccelBias);
 
-    // std::vector<State> estimated_trajectory(kNumSamples);
-    // estimated_trajectory.at(0).position = kPositionInit;
-    // estimated_trajectory.at(0).velocity = kVelocityInit;
-    // estimated_trajectory.at(0).acceleration = kAccelInit;
+    std::vector<State> estimated_trajectory(kNumSamples);
+    estimated_trajectory.at(0).position = kPositionInit;
+    estimated_trajectory.at(0).velocity = kVelocityInit;
+    estimated_trajectory.at(0).acceleration = kAccelInit;
 
-    // for (size_t i = 0; i < imu_measurements.size() - 1; ++i) {
-    //     // std::cout << "imu[" << i << "] = " << imu_measurements[i] << '\n';
-    //     estimated_trajectory.at(i).acceleration = imu_measurements.at(i);
-    //     estimated_trajectory.at(i + 1).velocity = estimated_trajectory.at(i).velocity +
-    //     estimated_trajectory.at(i).acceleration * kDt; estimated_trajectory.at(i + 1).position =
-    //     estimated_trajectory.at(i).position + estimated_trajectory.at(i).velocity * kDt + 0.5 *
-    //     estimated_trajectory.at(i).acceleration * kDt * kDt;
-    // }
-    std::cout << "estimated velocity: " << imu_measurements.back().velocity << '\n';
-    std::cout << "estimated position: " << imu_measurements.back().position << '\n';
+    for (size_t i = 0; i < imu_measurements.size() - 1; ++i)
+    {
+        // std::cout << "imu[" << i << "] = " << imu_measurements[i] << '\n';
+        estimated_trajectory.at(i).acceleration = imu_measurements.at(i);
+        estimated_trajectory.at(i + 1).velocity =
+            estimated_trajectory.at(i).velocity + estimated_trajectory.at(i).acceleration * kDt;
+        estimated_trajectory.at(i + 1).position =
+            estimated_trajectory.at(i).position + estimated_trajectory.at(i).velocity * kDt +
+            0.5 * estimated_trajectory.at(i).acceleration * kDt * kDt;
+    }
+
+    std::cout << "estimated velocity: " << estimated_trajectory.back().velocity << '\n';
+    std::cout << "estimated position: " << estimated_trajectory.back().position << '\n';
 
     std::cout << "last position_error: "
-              << std::abs(true_trajectory.back().position - imu_measurements.back().position)
+              << std::abs(true_trajectory.back().position - estimated_trajectory.back().position)
               << '\n';
 
     auto gps_measurements = generate_gps_measurements(true_trajectory, gen, gps_position_noise,
@@ -125,7 +128,7 @@ int main()
     auto doppler_measurements = generate_doppler_measurements(
         true_trajectory, gen, doppler_range_noise, doppler_rr_noise, kBeaconPosition, kDopplerStep);
 
-    write_measurements_csv(true_trajectory, imu_measurements, gps_measurements,
+    write_measurements_csv(true_trajectory, estimated_trajectory, gps_measurements,
                            doppler_measurements, kDt);
 
     return 0;
@@ -147,30 +150,18 @@ std::vector<State> generate_true_trajectory(int num_samples, double dt, double a
     return trajectory;
 }
 
-std::vector<State> generate_imu_measurements(const std::vector<State>& true_trajectory,
-                                             std::mt19937_64& gen,
-                                             std::normal_distribution<double>& accel_noise_dist,
-                                             double accel_bias, double dt)
+std::vector<double> generate_imu_measurements(const std::vector<State>& true_trajectory,
+                                              std::mt19937_64& gen,
+                                              std::normal_distribution<double>& accel_noise_dist,
+                                              double accel_bias)
 {
 
-    std::vector<State> imu_measurements(true_trajectory.size());
-
-    imu_measurements.at(0).position = true_trajectory.at(0).position;
-    imu_measurements.at(0).velocity = true_trajectory.at(0).velocity;
+    std::vector<double> imu_measurements(true_trajectory.size());
 
     for (size_t i = 0; i < true_trajectory.size(); ++i)
     {
         const double noise = accel_noise_dist(gen);
-        imu_measurements.at(i).acceleration =
-            true_trajectory.at(i).acceleration + accel_bias + noise;
-        if (i < true_trajectory.size() - 1)
-        {
-            imu_measurements.at(i + 1).velocity =
-                imu_measurements.at(i).velocity + imu_measurements.at(i).acceleration * dt;
-            imu_measurements.at(i + 1).position =
-                imu_measurements.at(i).position + imu_measurements.at(i).velocity * dt +
-                0.5 * imu_measurements.at(i).acceleration * dt * dt;
-        }
+        imu_measurements.at(i) = true_trajectory.at(i).acceleration + accel_bias + noise;
     }
 
     return imu_measurements;
