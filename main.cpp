@@ -1,9 +1,9 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <vector>
-#include <limits>
 
 struct State
 {
@@ -154,13 +154,13 @@ std::vector<State> generate_imu_measurements(const std::vector<State>& true_traj
 {
 
     std::vector<State> imu_measurements(true_trajectory.size());
-    double noise;
+
     imu_measurements.at(0).position = true_trajectory.at(0).position;
     imu_measurements.at(0).velocity = true_trajectory.at(0).velocity;
 
     for (size_t i = 0; i < true_trajectory.size(); ++i)
     {
-        noise = accel_noise_dist(gen);
+        const double noise = accel_noise_dist(gen);
         imu_measurements.at(i).acceleration =
             true_trajectory.at(i).acceleration + accel_bias + noise;
         if (i < true_trajectory.size() - 1)
@@ -182,14 +182,13 @@ generate_gps_measurements(const std::vector<State>& true_trajectory, std::mt1993
                           std::normal_distribution<double>& velocity_noise_dist, int gps_step)
 {
     std::vector<GPSMeasurement> gps_measurements(true_trajectory.size());
-    double position_noise, velocity_noise;
 
     for (size_t i = 0; i < true_trajectory.size(); ++i)
     {
         if (i % gps_step == 0)
         {
-            position_noise = position_noise_dist(gen);
-            velocity_noise = velocity_noise_dist(gen);
+            const double position_noise = position_noise_dist(gen);
+            const double velocity_noise = velocity_noise_dist(gen);
             gps_measurements.at(i).valid = true;
             gps_measurements.at(i).position = true_trajectory.at(i).position + position_noise;
             gps_measurements.at(i).velocity = true_trajectory.at(i).velocity + velocity_noise;
@@ -212,19 +211,20 @@ generate_doppler_measurements(const std::vector<State>& true_trajectory, std::mt
                               double beacon_position, int doppler_step)
 {
     std::vector<DopplerMeasurement> doppler_measurement(true_trajectory.size());
-    double range_noise, rr_noise, delta_position;
-    double sign;
 
     for (size_t i = 0; i < true_trajectory.size(); ++i)
     {
         if (i % doppler_step == 0)
         {
-            range_noise = range_noise_dist(gen);
-            rr_noise = rr_noise_dist(gen);
-            delta_position = true_trajectory.at(i).position - beacon_position;
+            // in C++, it costs nothing to allocate stack in the loop (unless it is an object with
+            // expensive constructor)
+            const double range_noise = range_noise_dist(gen);
+            const double rr_noise = rr_noise_dist(gen);
+            const double delta_position = true_trajectory.at(i).position - beacon_position;
             doppler_measurement.at(i).valid = true;
             doppler_measurement.at(i).range = std::abs(delta_position) + range_noise;
-            sign = (delta_position > 1e-12) ? 1.0 : -1.0; // positive is moving away from beacon
+            const double sign =
+                (delta_position > 1e-12) ? 1.0 : -1.0; // positive is moving away from beacon
             doppler_measurement.at(i).range_rate = sign * true_trajectory.at(i).velocity + rr_noise;
         }
         else
