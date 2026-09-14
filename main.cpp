@@ -1,3 +1,4 @@
+#include <cassert>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -237,6 +238,20 @@ void write_measurements_csv(const std::string& filename, const std::vector<State
                             const std::vector<DopplerMeasurement>& doppler_measurements, double dt)
 {
     std::ofstream file(filename);
+
+    // assert the indices are correct
+    for (size_t i = 0; i < true_trajectory.size(); ++i)
+    {
+        if (i % 100 == 0)
+        {
+            assert(gps_measurements.at(i).valid == true);
+        }
+
+        if (i % 10 == 0)
+        {
+            assert(doppler_measurements.at(i).valid == true);
+        }
+    }
 
     if (!file.is_open())
     {
